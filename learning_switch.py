@@ -1,0 +1,79 @@
+"""
+Your learning switch warm-up exercise for CS-168.
+
+Start it up with a commandline like...
+
+  ./simulator.py --default-switch-type=learning_switch topos.rand --links=0
+
+"""
+
+import sim.api as api
+import sim.basics as basics
+
+
+class LearningSwitch(api.Entity):
+    """
+    A learning switch.
+
+    Looks at source addresses to learn where endpoints are.  When it doesn't
+    know where the destination endpoint is, floods.
+
+    This will surely have problems with topologies that have loops!  If only
+    someone would invent a helpful poem for solving that problem...
+
+    """
+
+    def __init__(self):
+        """
+        Do some initialization.
+
+        You probably want to do something in this method.
+
+        """
+        self.switch_table = dict()
+
+    def handle_link_down(self, port):
+        """
+        Called when a port goes down (because a link is removed)
+
+        You probably want to remove table entries which are no longer
+        valid here.
+
+        """
+
+        for key, val in self.switch_table.items():
+            if val == port:
+                del self.switch_table[key]
+
+    def handle_rx(self, packet, in_port):
+        """
+        Called when a packet is received.
+
+        You most certainly want to process packets here, learning where
+        they're from, and either forwarding them toward the destination
+        or flooding them.
+
+        """
+
+        # The source of the packet can obviously be reached via the input port, so
+        # we should "learn" that the source host is out that port.  If we later see
+        # a packet with that host as the *destination*, we know where to send it!
+        # But it's up to you to implement that.  For now, we just implement a
+        # simple hub.
+
+        if isinstance(packet, basics.HostDiscoveryPacket):
+            # Don't forward discovery messages
+            return
+        if packet.src not in self.switch_table.keys():
+            self.switch_table[packet.src] = in_port
+        if packet.dst in self.switch_table:
+            if in_port == self.switch_table.get(packet.dst):
+                return
+            else:
+                self.send(packet, self.switch_table.get(packet.dst))
+        else:
+            self.send(packet, in_port, flood=True)
+
+
+        # Flood out all ports except the input port
+
